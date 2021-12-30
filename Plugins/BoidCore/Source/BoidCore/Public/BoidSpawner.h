@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "BoidComputeShader.h"
 #include "BoidSpawner.generated.h"
 
 UCLASS()
@@ -33,4 +34,6 @@ public:
 
 private:
 	TArray<AActor*> Boids;
+
+	FBoidComputeShader ComputeShader;
 };

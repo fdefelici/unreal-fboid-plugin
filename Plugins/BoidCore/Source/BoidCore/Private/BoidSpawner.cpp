@@ -12,6 +12,10 @@
 
 #include "Engine/World.h"
 
+#include "Containers/DynamicRHIResourceArray.h"
+#include "BoidComputeShader.h"
+#include "BoidComputeShaderDeclaration.h"
+
 // Sets default values
 ABoidSpawner::ABoidSpawner()
 {
@@ -87,12 +91,42 @@ void ABoidSpawner::BeginPlay()
 	}
 
 	GetWorld()->RemoveOnActorSpawnedHandler(ActorSpawnedDelegate.GetHandle());
+
+
+	ComputeShader.Init(Settings->BoidCount);
 }
 
 // Called every frame
 void ABoidSpawner::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	//Create only at BeginPlay or CTOR
+	TResourceArray<BoidData_t> Input;
+	Input.SetNum(Boids.Num());
+	
+
+	//ForEach Boid update data: 
+	for (int Index = 0; Index < Boids.Num(); ++Index)
+	{
+		AActor* Actor = Boids[Index];
+		UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Actor->GetComponentByClass(UBoidBehaviour::StaticClass()));
+		Input[Index].Position = Actor->GetActorLocation();
+		Input[Index].Direction = Actor->GetActorForwardVector();
+		Input[Index].FlockmatesCount = 0;
+		Input[Index].AlignDirection = FVector::ZeroVector;
+	}
+	ComputeShader.Execute(Input);
+	while (!ComputeShader.IsCompleted()) {
+		//WAIT;
+	}
+
+	const TArray<BoidData_t>& Result = ComputeShader.GetResult();
+	const BoidData_t& first = Result[0];
+	const BoidData_t& second = Result[1];
+	UE_LOG(LogTemp, Warning, TEXT("%p"), &first);
+	UE_LOG(LogTemp, Warning, TEXT("%p"), &second);
+
 }
 
 const TArray<AActor*>& ABoidSpawner::GetBoids() const

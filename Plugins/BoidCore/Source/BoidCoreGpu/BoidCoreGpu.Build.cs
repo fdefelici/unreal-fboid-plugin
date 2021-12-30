@@ -2,9 +2,9 @@
 
 using UnrealBuildTool;
 
-public class BoidCore : ModuleRules
+public class BoidCoreGpu : ModuleRules
 {
-	public BoidCore(ReadOnlyTargetRules Target) : base(Target)
+	public BoidCoreGpu(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
@@ -27,9 +27,6 @@ public class BoidCore : ModuleRules
 			{
 				"Core",
 				// ... add other public dependencies that you statically link with here ...
-				"BoidCoreGpu",
-				"RenderCore",
-				"RHI"
 			}
 			);
 			
@@ -39,10 +36,6 @@ public class BoidCore : ModuleRules
 			{
 				"CoreUObject",
 				"Engine",
-				"Slate",
-				"SlateCore",
-				// ... add private dependencies that you statically link with here ...
-				"BoidCoreGpu",
 				"RenderCore",
 				"RHI"
 			}

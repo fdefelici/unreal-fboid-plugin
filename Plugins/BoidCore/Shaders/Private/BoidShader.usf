@@ -1,0 +1,34 @@
+#include "/Engine/Public/Platform.ush"
+
+struct BoidDataIO
+{
+	float3 Position;
+	float3 Direction;
+	float3 AlignDirection;
+	int FlockmatesCount;
+};
+
+RWStructuredBuffer<BoidDataIO> BoidData;
+int BoidCount;
+float AlignRadius;
+
+[numthreads(THREADGROUPSIZE_X, THREADGROUPSIZE_Y, THREADGROUPSIZE_Z)]
+void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
+{	
+	uint CurrentIndex = ThreadId.x;
+	BoidDataIO CurrentBoid = BoidData[CurrentIndex]; 
+	for(int Index = 0; Index < BoidCount; ++Index)
+	{
+		//if (ThreadId.x == Index) continue;
+		
+		BoidDataIO EachBoid = BoidData[Index];
+		float3 Offset = EachBoid.Position - CurrentBoid.Position;
+		float SqrDistance = Offset.x * Offset.x + Offset.y * Offset.y + Offset.z * Offset.z;
+		
+		if (SqrDistance < AlignRadius * AlignRadius)
+		{
+			BoidData[CurrentIndex].FlockmatesCount += 1;
+			BoidData[CurrentIndex].AlignDirection  += EachBoid.Direction;
+		}
+	}
+}

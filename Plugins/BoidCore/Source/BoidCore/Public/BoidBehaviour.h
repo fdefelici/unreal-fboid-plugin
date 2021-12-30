@@ -39,6 +39,7 @@ private:
 	class UBoidSettings* Settings;
 	class ABoidSpawner* Spawner;
 
+public:
 	FVector CurrentDirection;
 	float CurrentSpeed;
 	FVector CurrentVelocity;
