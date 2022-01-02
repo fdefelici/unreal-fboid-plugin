@@ -3,6 +3,7 @@
 
 #include "BoidSpawner.h"
 #include "BoidBehaviour.h"
+#include "BoidBehaviourGpu.h"
 #include "BoidSettings.h"
 #if WITH_EDITOR
 #include "BoidDrawComponent.h"
@@ -35,7 +36,8 @@ void ABoidSpawner::BeginPlay()
 	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateLambda([this](AActor* Instance) {
 		UE_LOG(LogTemp, Warning, TEXT("Hey %s: %d"), *Instance->GetName(), Instance->GetComponents().Num());
 
-		UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Instance->GetComponentByClass(UBoidBehaviour::StaticClass()));
+		//UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Instance->GetComponentByClass(UBoidBehaviour::StaticClass()));
+		UBoidBehaviourGpu* BoidBehav = Cast<UBoidBehaviourGpu>(Instance->GetComponentByClass(UBoidBehaviourGpu::StaticClass()));
 		if (!BoidBehav) return;
 		BoidBehav->SetSettings(Settings);
 		BoidBehav->SetSpawner(this);
@@ -110,11 +112,16 @@ void ABoidSpawner::Tick(float DeltaTime)
 	for (int Index = 0; Index < Boids.Num(); ++Index)
 	{
 		AActor* Actor = Boids[Index];
-		UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Actor->GetComponentByClass(UBoidBehaviour::StaticClass()));
+		//UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Actor->GetComponentByClass(UBoidBehaviour::StaticClass()));
 		Input[Index].Position = Actor->GetActorLocation();
 		Input[Index].Direction = Actor->GetActorForwardVector();
-		Input[Index].FlockmatesCount = 0;
-		Input[Index].AlignDirection = FVector::ZeroVector;
+		Input[Index].AlignCount = 0;
+		Input[Index].FlockDirection = FVector::ZeroVector;
+		Input[Index].CohesionCount = 0;
+		Input[Index].FlockPosition = FVector::ZeroVector;
+		Input[Index].SeparationCount = 0;
+		Input[Index].FlockSeparationDirection = FVector::ZeroVector;
+		Input[Index].SeparationCount = 0;
 	}
 	ComputeShader.Execute(Input);
 	while (!ComputeShader.IsCompleted()) {
@@ -126,7 +133,19 @@ void ABoidSpawner::Tick(float DeltaTime)
 	const BoidData_t& second = Result[1];
 	UE_LOG(LogTemp, Warning, TEXT("%p"), &first);
 	UE_LOG(LogTemp, Warning, TEXT("%p"), &second);
-
+	for (int Index = 0; Index < Boids.Num(); ++Index)
+	{
+		AActor* Actor = Boids[Index];
+		UBoidBehaviourGpu* BoidBehav = Cast<UBoidBehaviourGpu>(Actor->GetComponentByClass(UBoidBehaviourGpu::StaticClass()));
+		BoidBehav->_UpdateData(
+			Result[Index].AlignCount,
+			Result[Index].FlockDirection,
+			Result[Index].CohesionCount,
+			Result[Index].FlockPosition,
+			Result[Index].SeparationCount,
+			Result[Index].FlockSeparationDirection
+		);
+	}
 }
 
 const TArray<AActor*>& ABoidSpawner::GetBoids() const

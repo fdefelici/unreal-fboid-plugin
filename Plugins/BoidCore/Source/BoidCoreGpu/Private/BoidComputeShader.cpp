@@ -37,7 +37,6 @@ void FBoidComputeShader::Execute(TResourceArray<BoidData_t>& Input)
 	ENQUEUE_RENDER_COMMAND(FBoidComputeShaderCommand)(
 		[this, Input](FRHICommandListImmediate& RHICommands)
 		{
-
 			int BoidCount = Input.Num();
 			if (m_BoidDataUAV.IsValid())
 			{
@@ -55,12 +54,16 @@ void FBoidComputeShader::Execute(TResourceArray<BoidData_t>& Input)
 			FBoidComputeShaderDeclaration::FParameters PassParams;
 			PassParams.BoidData = m_BoidDataUAV;
 			PassParams.BoidCount = BoidCount;
-			PassParams.AlignRadius = 10.f;
+			PassParams.AlignRadius = 300.f;
+			PassParams.CohesionRadius = 300.f;
+			PassParams.SeparationRadius = 100.f;
 
+			//Eventualmente: FComputeShaderUtils::GetGroupCount ??? Gia fa il calcolo a livello di FIntVector
+			//https://answers.unrealengine.com/questions/978809/loading-data-tofrom-structured-buffer-compute-shad.html
 			int X = FMath::DivideAndRoundUp(BoidCount, FBoidComputeShaderDeclaration::ThreadsPerGroup.X);
 
 			FIntVector GroupCounts = FIntVector(X, 1, 1);
-
+			
 			//Execute the Compute Shader (synchrnous call)
 			FComputeShaderUtils::Dispatch(RHICommands, ComputeShaderDecl, PassParams, GroupCounts);
 
@@ -68,13 +71,6 @@ void FBoidComputeShader::Execute(TResourceArray<BoidData_t>& Input)
 			BoidData_t* data = (BoidData_t*)RHILockStructuredBuffer(m_BoidDataBuffer, 0, sizeof(BoidData_t) * m_Result.Num(), RLM_ReadOnly);
 			FMemory::Memcpy(m_Result.GetData(), data, sizeof(BoidData_t) * m_Result.Num());
 			RHIUnlockStructuredBuffer(m_BoidDataBuffer);
-
-			/*
-			for (int i = 0; i < m_Positions.Num(); i++) {
-				int index = i * 3;
-				UE_LOG(LogTemp, Warning, TEXT("%2d) %d %d %d"), i, data[index + 0], data[index + 1], data[index + 2]);
-			}
-			*/
 
 			m_IsCompleted = true;
 		}

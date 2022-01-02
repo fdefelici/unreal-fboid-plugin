@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
+#pragma optimize("", off)
 
-
-#include "BoidBehaviour.h"
+#include "BoidBehaviourGpu.h"
 #include "BoidSettings.h"
 #include "BoidDirections.h"
 #include "BoidSpawner.h"
@@ -9,26 +9,26 @@
 #include "Kismet/KismetMathLibrary.h"
 
 // Sets default values for this component's properties
-UBoidBehaviour::UBoidBehaviour()
+UBoidBehaviourGpu::UBoidBehaviourGpu()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
 
-void UBoidBehaviour::SetSettings(UBoidSettings* SomeSettings)
+void UBoidBehaviourGpu::SetSettings(UBoidSettings* SomeSettings)
 {
 	Settings = SomeSettings;
 }
 
 
-void UBoidBehaviour::SetSpawner(ABoidSpawner* ASpawner)
+void UBoidBehaviourGpu::SetSpawner(ABoidSpawner* ASpawner)
 {
 	Spawner = ASpawner;
 }
 
 
 // Called when the game starts
-void UBoidBehaviour::BeginPlay()
+void UBoidBehaviourGpu::BeginPlay()
 {
 	Super::BeginPlay();
 
@@ -41,20 +41,42 @@ void UBoidBehaviour::BeginPlay()
 	CurrentVelocity = CurrentDirection * CurrentSpeed;
 
 	GetOwner()->SetActorRotation(CurrentDirection.Rotation());
+
+
+	m_AlignDirection = FVector::ZeroVector;
+	m_CohsionDirection = FVector::ZeroVector;
+}
+
+void UBoidBehaviourGpu::_UpdateData(int AlignCount, FVector FlockDirection, 
+	int CohesionCount, FVector FlockPosition, 
+	int SeparationCount, FVector FlockSeparationDirection) {
+	if (AlignCount > 0) {
+		//m_AlignDirection = AlignDirection / FlockmatesCount;
+		m_AlignDirection = FlockDirection; //effettivamente la media non serve ("accorcia" solo il vettore), poiche' poi faccio il Normalize
+	}
+
+	if (CohesionCount > 0) {
+		FlockPosition /= CohesionCount;
+		m_CohsionDirection = FlockPosition - GetOwner()->GetActorLocation();
+	}
+
+	if (SeparationCount > 0) {
+		m_SeparationDirection = FlockSeparationDirection;
+	}
 }
 
 
 // Called every frame
-void UBoidBehaviour::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UBoidBehaviourGpu::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	FVector Acceleration = FVector::ZeroVector;
 
-	FVector AlignForce = SteerTowards(CalculateAligmentDirection()) * Settings->AlignmentWeight;
-	FVector CohesForce = SteerTowards(CalculateCohesionDirection()) * Settings->CohesionWeight;
-	FVector SeparForce = SteerTowards(CalculateSeparationDirection()) * Settings->SeparationWeight;
+	FVector AlignForce = SteerTowards(m_AlignDirection) * Settings->AlignmentWeight;
+	FVector CohesForce = SteerTowards(m_CohsionDirection) * Settings->CohesionWeight;
+	FVector SeparForce = SteerTowards(m_SeparationDirection) * Settings->SeparationWeight;
 
 	Acceleration += AlignForce;
 	Acceleration += CohesForce;
@@ -81,53 +103,7 @@ void UBoidBehaviour::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 
 }
 
-bool UBoidBehaviour::IsHeadingToObstacle()
-{
-	FVector Start = GetOwner()->GetActorLocation();
-	FVector End = Start + GetOwner()->GetActorForwardVector() * Settings->VisionDistance;
-
-	const TArray<AActor*> ActorsToIgnore;
-	FHitResult HitResult;
-	return UKismetSystemLibrary::SphereTraceSingle(
-		this, Start, End, Settings->ColliderRadius, UEngineTypes::ConvertToTraceType(ECC_Visibility),
-		false, ActorsToIgnore, EDrawDebugTrace::None, HitResult, true);
-}
-
-FVector UBoidBehaviour::CalculateDirectionToAvoidObstacle()
-{
-	const TArray<FVector>& Rays = FBoidDirections::GetDirections();
-
-
-	for (int Index = 0; Index < Rays.Num(); Index++)
-	{
-		FVector WorldRay = UKismetMathLibrary::TransformDirection(GetOwner()->GetTransform(), Rays[Index]);
-
-		FVector Start = GetOwner()->GetActorLocation();
-		FVector End = Start + WorldRay * Settings->VisionDistance;
-
-		const TArray<AActor*> ActorsToIgnore;
-		FHitResult HitResult;
-		bool bHit = UKismetSystemLibrary::SphereTraceSingle(
-			this, Start, End, Settings->ColliderRadius, UEngineTypes::ConvertToTraceType(ECC_Visibility),
-			false, ActorsToIgnore, EDrawDebugTrace::None, HitResult, true);
-
-		if (!bHit)
-		{
-			return WorldRay;
-		}
-	}
-
-	return GetOwner()->GetActorForwardVector();
-}
-
-FVector UBoidBehaviour::SteerTowards(FVector Direction)
-{
-	Direction.Normalize();
-	FVector NewDirection = Direction * Settings->MaxSpeed - CurrentVelocity;
-	return NewDirection.GetClampedToMaxSize(Settings->MaxSteeringForce);
-}
-
-FVector UBoidBehaviour::CalculateAligmentDirection()
+FVector UBoidBehaviourGpu::CalculateAligmentDirection()
 {
 	FVector Position = GetOwner()->GetActorLocation();
 
@@ -156,7 +132,54 @@ FVector UBoidBehaviour::CalculateAligmentDirection()
 	return Result;
 }
 
-FVector UBoidBehaviour::CalculateCohesionDirection()
+bool UBoidBehaviourGpu::IsHeadingToObstacle()
+{
+	FVector Start = GetOwner()->GetActorLocation();
+	FVector End = Start + GetOwner()->GetActorForwardVector() * Settings->VisionDistance;
+
+	const TArray<AActor*> ActorsToIgnore;
+	FHitResult HitResult;
+	return UKismetSystemLibrary::SphereTraceSingle(
+		this, Start, End, Settings->ColliderRadius, UEngineTypes::ConvertToTraceType(ECC_Visibility),
+		false, ActorsToIgnore, EDrawDebugTrace::None, HitResult, true);
+}
+
+FVector UBoidBehaviourGpu::CalculateDirectionToAvoidObstacle()
+{
+	const TArray<FVector>& Rays = FBoidDirections::GetDirections();
+
+
+	for (int Index = 0; Index < Rays.Num(); Index++)
+	{
+		FVector WorldRay = UKismetMathLibrary::TransformDirection(GetOwner()->GetTransform(), Rays[Index]);
+
+		FVector Start = GetOwner()->GetActorLocation();
+		FVector End = Start + WorldRay * Settings->VisionDistance;
+
+		const TArray<AActor*> ActorsToIgnore;
+		FHitResult HitResult;
+		bool bHit = UKismetSystemLibrary::SphereTraceSingle(
+			this, Start, End, Settings->ColliderRadius, UEngineTypes::ConvertToTraceType(ECC_Visibility),
+			false, ActorsToIgnore, EDrawDebugTrace::None, HitResult, true);
+
+		if (!bHit)
+		{
+			return WorldRay;
+		}
+	}
+
+	return GetOwner()->GetActorForwardVector();
+}
+
+FVector UBoidBehaviourGpu::SteerTowards(FVector Direction)
+{
+	Direction.Normalize();
+	FVector NewDirection = Direction * Settings->MaxSpeed - CurrentVelocity;
+	return NewDirection.GetClampedToMaxSize(Settings->MaxSteeringForce);
+}
+
+
+FVector UBoidBehaviourGpu::CalculateCohesionDirection()
 {
 	FVector Position = GetOwner()->GetActorLocation();
 
@@ -186,7 +209,7 @@ FVector UBoidBehaviour::CalculateCohesionDirection()
 	return Result;
 }
 
-FVector UBoidBehaviour::CalculateSeparationDirection()
+FVector UBoidBehaviourGpu::CalculateSeparationDirection()
 {
 	FVector Position = GetOwner()->GetActorLocation();
 
@@ -209,7 +232,7 @@ FVector UBoidBehaviour::CalculateSeparationDirection()
 
 	if (NeighboursCount > 0)
 	{
-		Result /= NeighboursCount;  //media delle direzioni dei vicini
+		//Result /= NeighboursCount;  //media delle direzioni dei vicini
 		Result.Normalize();
 	}
 	return Result;

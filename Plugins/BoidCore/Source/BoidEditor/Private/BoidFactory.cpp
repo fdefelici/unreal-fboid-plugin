@@ -23,6 +23,7 @@
 #include "BoidFactoryDialog.h"
 #include "BoidDrawComponent.h"
 #include "Engine/SCS_Node.h"
+#include "BoidBehaviourGpu.h"
 
 class FBoidFactoryFilter : public IClassViewerFilter
 {
@@ -111,7 +112,8 @@ static void AttachBoidComponents(UBlueprint* BPAsset)
 
 	if (!HasComponent<UBoidBehaviour>(BPAsset))
 	{
-		USCS_Node* Node = BPScript->CreateNode(UBoidBehaviour::StaticClass(), TEXT("Boid Behaviour"));
+		//USCS_Node* Node = BPScript->CreateNode(UBoidBehaviour::StaticClass(), TEXT("Boid Behaviour"));
+		USCS_Node* Node = BPScript->CreateNode(UBoidBehaviourGpu::StaticClass(), TEXT("Boid Behaviour"));
 		BPScript->AddNode(Node);
 		FKismetEditorUtilities::CompileBlueprint(BPAsset);
 	}

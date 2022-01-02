@@ -4,13 +4,19 @@ struct BoidDataIO
 {
 	float3 Position;
 	float3 Direction;
-	float3 AlignDirection;
-	int FlockmatesCount;
+	float3 FlockDirection;
+	float3 FlockPosition;
+	float3 FlockSeparationDirection;
+	int AlignCount;
+	int CohesionCount;
+	int SeparationCount;
 };
 
 RWStructuredBuffer<BoidDataIO> BoidData;
 int BoidCount;
 float AlignRadius;
+float CohesionRadius;
+float SeparationRadius;
 
 [numthreads(THREADGROUPSIZE_X, THREADGROUPSIZE_Y, THREADGROUPSIZE_Z)]
 void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
@@ -19,16 +25,26 @@ void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
 	BoidDataIO CurrentBoid = BoidData[CurrentIndex]; 
 	for(int Index = 0; Index < BoidCount; ++Index)
 	{
-		//if (ThreadId.x == Index) continue;
+		if (Index == CurrentIndex) continue;
 		
 		BoidDataIO EachBoid = BoidData[Index];
-		float3 Offset = EachBoid.Position - CurrentBoid.Position;
+		float3 Offset = CurrentBoid.Position - EachBoid.Position;
 		float SqrDistance = Offset.x * Offset.x + Offset.y * Offset.y + Offset.z * Offset.z;
 		
 		if (SqrDistance < AlignRadius * AlignRadius)
 		{
-			BoidData[CurrentIndex].FlockmatesCount += 1;
-			BoidData[CurrentIndex].AlignDirection  += EachBoid.Direction;
+			BoidData[CurrentIndex].AlignCount += 1;
+			BoidData[CurrentIndex].FlockDirection += EachBoid.Direction;
+		}
+		if (SqrDistance < CohesionRadius * CohesionRadius)
+		{
+			BoidData[CurrentIndex].CohesionCount += 1;
+			BoidData[CurrentIndex].FlockPosition  += EachBoid.Position;
+		}
+		if (SqrDistance < SeparationRadius * SeparationRadius)
+		{	
+			BoidData[CurrentIndex].SeparationCount += 1;
+			BoidData[CurrentIndex].FlockSeparationDirection += (Offset / SqrDistance);
 		}
 	}
 }

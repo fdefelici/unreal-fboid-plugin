@@ -7,8 +7,13 @@ typedef struct BoidData_t
 {
 	FVector Position;
 	FVector Direction;
-	FVector AlignDirection;
-	int FlockmatesCount;
+
+	FVector FlockDirection;
+	FVector FlockPosition;
+	FVector FlockSeparationDirection;
+	int AlignCount;
+	int CohesionCount;
+	int SeparationCount;
 } BoidData_t;
 
 
@@ -20,6 +25,8 @@ class FBoidComputeShaderDeclaration : public FGlobalShader
 		SHADER_PARAMETER_UAV(RWStructuredBuffer<BoidData_t>, BoidData)
 		SHADER_PARAMETER(int, BoidCount)
 		SHADER_PARAMETER(float, AlignRadius)
+		SHADER_PARAMETER(float, CohesionRadius)
+		SHADER_PARAMETER(float, SeparationRadius)
 	END_SHADER_PARAMETER_STRUCT()
 
 public:
