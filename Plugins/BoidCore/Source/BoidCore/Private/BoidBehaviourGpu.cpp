@@ -69,7 +69,6 @@ void UBoidBehaviourGpu::_UpdateData(int AlignCount, FVector FlockDirection,
 // Called every frame
 void UBoidBehaviourGpu::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
-
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	FVector Acceleration = FVector::ZeroVector;
@@ -237,3 +236,4 @@ FVector UBoidBehaviourGpu::CalculateSeparationDirection()
 	}
 	return Result;
 }
+#pragma optimize("", on)

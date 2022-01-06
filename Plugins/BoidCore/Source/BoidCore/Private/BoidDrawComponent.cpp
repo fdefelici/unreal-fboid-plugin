@@ -4,6 +4,7 @@
 #include "BoidDrawComponent.h"
 #include "BoidSettings.h"
 #include "SceneManagement.h"
+#include "GameFramework/Actor.h"
 
 class FBoidDrawComponentSceneProxy final : public FPrimitiveSceneProxy
 {
@@ -29,7 +30,7 @@ public:
 		const FVector AlignX = LocalToWorldMatrix.GetScaledAxis(EAxis::X);
 		const FVector AlignY = LocalToWorldMatrix.GetScaledAxis(EAxis::Y);
 		const int Smoothness = 24;
-
+		
 
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
@@ -100,4 +101,5 @@ FPrimitiveSceneProxy* UBoidDrawComponent::CreateSceneProxy()
 void UBoidDrawComponent::SetSettings(UBoidSettings* SomeSettings)
 {
 	Settings = SomeSettings;
+	MarkRenderStateDirty(); //Force SceneProxy to be re-created
 }

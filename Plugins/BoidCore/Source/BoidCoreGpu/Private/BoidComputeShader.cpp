@@ -4,20 +4,7 @@
 
 FBoidComputeShader::FBoidComputeShader()
 {
-	/*
-	FStructuredBufferRHIRef m_BoidDataBuffer;
-	FShaderResourceViewRHIRef m_BoidDataSRV;
-
-	FStructuredBufferRHIRef m_OuputBuffer;
-	FUnorderedAccessViewRHIRef m_OuputUAV;
-	*/
-	//int BoidCount;
-	
-}
-
-void FBoidComputeShader::Init(int BoidCount)
-{
-	m_Result.SetNum(BoidCount);
+	m_IsCompleted = true;
 }
 
 bool FBoidComputeShader::IsCompleted()
@@ -25,54 +12,86 @@ bool FBoidComputeShader::IsCompleted()
 	return m_IsCompleted;
 }
 
+void FBoidComputeShader::Init(int BoidCount)
+{
+	m_Result.SetNum(BoidCount);
+}
+
 const TArray<BoidData_t>& FBoidComputeShader::GetResult() const
 {
 	return m_Result;
 }
 
-void FBoidComputeShader::Execute(TResourceArray<BoidData_t>& Input)
+
+DECLARE_STATS_GROUP(TEXT("ProvaGroup"), STATGROUP_ProvaGroup, STATCAT_Advanced);
+
+DECLARE_CYCLE_STAT(TEXT("Prova"), STAT_MyProva, STATGROUP_ProvaGroup);
+DECLARE_CYCLE_STAT(TEXT("Prova2"), STAT_MyProva2, STATGROUP_ProvaGroup);
+DECLARE_CYCLE_STAT(TEXT("Prova3"), STAT_MyProva3, STATGROUP_ProvaGroup);
+
+void FBoidComputeShader::Execute(TArray<BoidData_t>& Input)
 {
+	//FRenderCommandFence Fence;
 	m_IsCompleted = false;
-
 	ENQUEUE_RENDER_COMMAND(FBoidComputeShaderCommand)(
-		[this, Input](FRHICommandListImmediate& RHICommands)
+		[this, &Input](FRHICommandListImmediate& RHICommands)
 		{
-			int BoidCount = Input.Num();
-			if (m_BoidDataUAV.IsValid())
-			{
-				m_BoidDataUAV.SafeRelease();
-			}
-
-			FRHIResourceCreateInfo CreateInfo;
-			CreateInfo.ResourceArray = (FResourceArrayInterface*)&Input;
-			m_BoidDataBuffer = RHICreateStructuredBuffer(sizeof(BoidData_t), sizeof(BoidData_t) * BoidCount, BUF_UnorderedAccess | BUF_ShaderResource, CreateInfo);
-			m_BoidDataUAV = RHICreateUnorderedAccessView(m_BoidDataBuffer, false, false);
+			FRDGBuilder GraphBuilder(RHICommands);
 
 
+			uint32 BeginTime, EndTime;
+
+
+			BeginTime = FPlatformTime::Cycles();
+			FRDGBufferRef BoidDataBuffer = CreateStructuredBuffer(GraphBuilder, TEXT("BoidDataBufferPass"), sizeof(BoidData_t), Input.Num(),
+				Input.GetData(), sizeof(BoidData_t) * Input.Num(), ERDGInitialDataFlags::NoCopy); //Usare "No Copy" se Input non muore dopo la chiamata a Execute.
+			FRDGBufferUAVRef BoidDataBufferUAV = GraphBuilder.CreateUAV(BoidDataBuffer);
+
+			EndTime = FPlatformTime::Cycles();
+			SET_CYCLE_COUNTER(STAT_MyProva, EndTime - BeginTime);
+
+			BeginTime = FPlatformTime::Cycles();
 			TShaderMapRef<FBoidComputeShaderDeclaration> ComputeShaderDecl(GetGlobalShaderMap(ERHIFeatureLevel::SM5));
 
-			FBoidComputeShaderDeclaration::FParameters PassParams;
-			PassParams.BoidData = m_BoidDataUAV;
-			PassParams.BoidCount = BoidCount;
-			PassParams.AlignRadius = 300.f;
-			PassParams.CohesionRadius = 300.f;
-			PassParams.SeparationRadius = 100.f;
 
-			//Eventualmente: FComputeShaderUtils::GetGroupCount ??? Gia fa il calcolo a livello di FIntVector
+			int BoidCount = Input.Num();
+		
+			FBoidComputeShaderDeclaration::FParameters* PassParams = GraphBuilder.AllocParameters<FBoidComputeShaderDeclaration::FParameters>();
+			PassParams->BoidData = BoidDataBufferUAV;
+			PassParams->BoidCount = BoidCount;
+			PassParams->AlignRadius = 300.f;
+			PassParams->CohesionRadius = 300.f;
+			PassParams->SeparationRadius = 100.f;
+
 			//https://answers.unrealengine.com/questions/978809/loading-data-tofrom-structured-buffer-compute-shad.html
-			int X = FMath::DivideAndRoundUp(BoidCount, FBoidComputeShaderDeclaration::ThreadsPerGroup.X);
+			//int X = FMath::DivideAndRoundUp(BoidCount, FBoidComputeShaderDeclaration::ThreadsPerGroup.X);
+			FIntVector GroupCounts = FComputeShaderUtils::GetGroupCount({BoidCount, 1, 1}, FBoidComputeShaderDeclaration::ThreadsPerGroup);
 
-			FIntVector GroupCounts = FIntVector(X, 1, 1);
-			
 			//Execute the Compute Shader (synchrnous call)
-			FComputeShaderUtils::Dispatch(RHICommands, ComputeShaderDecl, PassParams, GroupCounts);
+			FComputeShaderUtils::AddPass(GraphBuilder, RDG_EVENT_NAME("BoidComputeShaderPass"),
+				ComputeShaderDecl, PassParams, GroupCounts);
 
-			// Read back data from buffer (Blocking: Maybe better adding a copy-data Pass using RDG (Render Graph)?!?
-			BoidData_t* data = (BoidData_t*)RHILockStructuredBuffer(m_BoidDataBuffer, 0, sizeof(BoidData_t) * m_Result.Num(), RLM_ReadOnly);
+			//Extends life time of the Structured Buffer (otherwise destroyed at end of the Pass)
+			TRefCountPtr<FRDGPooledBuffer> PooledBuffer;
+			GraphBuilder.QueueBufferExtraction(BoidDataBuffer, &PooledBuffer, ERHIAccess::CPURead);
+
+			GraphBuilder.Execute();
+			EndTime = FPlatformTime::Cycles();
+			SET_CYCLE_COUNTER(STAT_MyProva2, EndTime - BeginTime);
+
+			// Read back data from buffer
+			BeginTime = FPlatformTime::Cycles();
+			FRHIStructuredBuffer* StructuredBuffer = PooledBuffer->GetStructuredBufferRHI();
+			BoidData_t* data = (BoidData_t*)RHILockStructuredBuffer(StructuredBuffer, 0, sizeof(BoidData_t) * m_Result.Num(), RLM_ReadOnly);
 			FMemory::Memcpy(m_Result.GetData(), data, sizeof(BoidData_t) * m_Result.Num());
-			RHIUnlockStructuredBuffer(m_BoidDataBuffer);
+			RHIUnlockStructuredBuffer(StructuredBuffer);
+			EndTime = FPlatformTime::Cycles();
+			SET_CYCLE_COUNTER(STAT_MyProva3, EndTime - BeginTime);
 
 			m_IsCompleted = true;
 		}
 	);
+
+	//Fence.BeginFence();
+	//Fence.Wait();
 }

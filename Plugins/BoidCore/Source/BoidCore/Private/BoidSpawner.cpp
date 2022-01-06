@@ -13,9 +13,6 @@
 
 #include "Engine/World.h"
 
-#include "Containers/DynamicRHIResourceArray.h"
-#include "BoidComputeShader.h"
-#include "BoidComputeShaderDeclaration.h"
 
 // Sets default values
 ABoidSpawner::ABoidSpawner()
@@ -42,11 +39,14 @@ void ABoidSpawner::BeginPlay()
 		BoidBehav->SetSettings(Settings);
 		BoidBehav->SetSpawner(this);
 
+		#if WITH_EDITOR
 		UBoidDrawComponent* BoidDraw = Cast<UBoidDrawComponent>(Instance->GetComponentByClass(UBoidDrawComponent::StaticClass()));
 		if (!BoidDraw) return;
 		BoidDraw->SetSettings(Settings);
+		#endif
 		 
 	});
+	//BeginPlay will be called after the execution of this delegate
 	GetWorld()->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 
 	for (int Index = 0; Index < Settings->BoidCount; ++Index)
@@ -58,7 +58,8 @@ void ABoidSpawner::BeginPlay()
 
 		AActor* BoidInstance = GetWorld()->SpawnActor<AActor>(BoidPrefab, Transform);
 	
-		/*
+		/* Anche con SpawnActorDeferred i componenti che di base avrebbe l'attore, sarebbero inizializzati
+		* dopo il FinishSpawningActor. Per cui i compenenti che aggiungo (il behaviour) diventrebbero Root.
 		AActor* BoidInstance = GetWorld()->SpawnActorDeferred<AActor>(BoidPrefab, Transform);
 
 		UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(BoidInstance->GetComponentByClass(UBoidBehaviour::StaticClass()));
@@ -94,57 +95,75 @@ void ABoidSpawner::BeginPlay()
 
 	GetWorld()->RemoveOnActorSpawnedHandler(ActorSpawnedDelegate.GetHandle());
 
-
+	Input.SetNum(Settings->BoidCount);
 	ComputeShader.Init(Settings->BoidCount);
 }
+
+DECLARE_STATS_GROUP(TEXT("BoidStatGroup"), STATGROUP_BoidStatGroup, STATCAT_Advanced);
+
+DECLARE_CYCLE_STAT(TEXT("Boid_Input"), STAT_MyInputStats, STATGROUP_BoidStatGroup);
+DECLARE_CYCLE_STAT(TEXT("Boid_Execute"), STAT_MyExecuteStats, STATGROUP_BoidStatGroup);
+DECLARE_CYCLE_STAT(TEXT("Boid_Output"), STAT_MyOutputStats, STATGROUP_BoidStatGroup);
 
 // Called every frame
 void ABoidSpawner::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
+	if (!ComputeShader.IsCompleted()) {
+		return;
+	}
+
+
 	//Create only at BeginPlay or CTOR
-	TResourceArray<BoidData_t> Input;
-	Input.SetNum(Boids.Num());
+	//static TArray<BoidData_t> Input;
+	//Input.SetNum(Boids.Num());
 	
-
-	//ForEach Boid update data: 
-	for (int Index = 0; Index < Boids.Num(); ++Index)
 	{
-		AActor* Actor = Boids[Index];
-		//UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Actor->GetComponentByClass(UBoidBehaviour::StaticClass()));
-		Input[Index].Position = Actor->GetActorLocation();
-		Input[Index].Direction = Actor->GetActorForwardVector();
-		Input[Index].AlignCount = 0;
-		Input[Index].FlockDirection = FVector::ZeroVector;
-		Input[Index].CohesionCount = 0;
-		Input[Index].FlockPosition = FVector::ZeroVector;
-		Input[Index].SeparationCount = 0;
-		Input[Index].FlockSeparationDirection = FVector::ZeroVector;
-		Input[Index].SeparationCount = 0;
-	}
-	ComputeShader.Execute(Input);
-	while (!ComputeShader.IsCompleted()) {
-		//WAIT;
+		SCOPE_CYCLE_COUNTER(STAT_MyInputStats);
+		//ForEach Boid update data: 
+		for (int Index = 0; Index < Boids.Num(); ++Index)
+		{
+			AActor* Actor = Boids[Index];
+			//UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Actor->GetComponentByClass(UBoidBehaviour::StaticClass()));
+		
+			//Input
+			Input[Index].Position = Actor->GetActorLocation();
+			Input[Index].Direction = Actor->GetActorForwardVector();
+		
+			//Output
+			Input[Index].AlignCount = 0;
+			Input[Index].FlockDirection = FVector::ZeroVector;
+			Input[Index].CohesionCount = 0;
+			Input[Index].FlockPosition = FVector::ZeroVector;
+			Input[Index].SeparationCount = 0;
+			Input[Index].FlockSeparationDirection = FVector::ZeroVector;
+			Input[Index].SeparationCount = 0;
+		}
 	}
 
-	const TArray<BoidData_t>& Result = ComputeShader.GetResult();
-	const BoidData_t& first = Result[0];
-	const BoidData_t& second = Result[1];
-	UE_LOG(LogTemp, Warning, TEXT("%p"), &first);
-	UE_LOG(LogTemp, Warning, TEXT("%p"), &second);
-	for (int Index = 0; Index < Boids.Num(); ++Index)
 	{
-		AActor* Actor = Boids[Index];
-		UBoidBehaviourGpu* BoidBehav = Cast<UBoidBehaviourGpu>(Actor->GetComponentByClass(UBoidBehaviourGpu::StaticClass()));
-		BoidBehav->_UpdateData(
-			Result[Index].AlignCount,
-			Result[Index].FlockDirection,
-			Result[Index].CohesionCount,
-			Result[Index].FlockPosition,
-			Result[Index].SeparationCount,
-			Result[Index].FlockSeparationDirection
-		);
+		SCOPE_CYCLE_COUNTER(STAT_MyExecuteStats);
+		ComputeShader.Execute(Input);
+	}
+
+
+	{
+		SCOPE_CYCLE_COUNTER(STAT_MyOutputStats);
+		const TArray<BoidData_t>& Result = ComputeShader.GetResult();
+		for (int Index = 0; Index < Boids.Num(); ++Index)
+		{
+			AActor* Actor = Boids[Index];
+			UBoidBehaviourGpu* BoidBehav = Cast<UBoidBehaviourGpu>(Actor->GetComponentByClass(UBoidBehaviourGpu::StaticClass()));
+			BoidBehav->_UpdateData(
+				Result[Index].AlignCount,
+				Result[Index].FlockDirection,
+				Result[Index].CohesionCount,
+				Result[Index].FlockPosition,
+				Result[Index].SeparationCount,
+				Result[Index].FlockSeparationDirection
+			);
+		}
 	}
 }
 
