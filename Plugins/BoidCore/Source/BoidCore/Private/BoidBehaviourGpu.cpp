@@ -12,12 +12,17 @@
 UBoidBehaviourGpu::UBoidBehaviourGpu()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+	_index = -1;
 }
 
 
 void UBoidBehaviourGpu::SetSettings(UBoidSettings* SomeSettings)
 {
 	Settings = SomeSettings;
+
+	CurrentSpeed = Settings->MinSpeed;
+	CurrentDirection = GetOwner()->GetActorForwardVector();
+	CurrentVelocity = CurrentDirection * CurrentSpeed;
 }
 
 
@@ -32,8 +37,9 @@ void UBoidBehaviourGpu::BeginPlay()
 {
 	Super::BeginPlay();
 
-
+	//check(_index != -1);
 	//TODO CHECK
+	/*
 	if (!Settings) return;
 	
 	CurrentSpeed = Settings->MinSpeed;
@@ -41,10 +47,15 @@ void UBoidBehaviourGpu::BeginPlay()
 	CurrentVelocity = CurrentDirection * CurrentSpeed;
 
 	GetOwner()->SetActorRotation(CurrentDirection.Rotation());
+	*/
 
+	CurrentSpeed = 0.f;
+	CurrentDirection = GetOwner()->GetActorForwardVector();
+	CurrentVelocity = FVector::ZeroVector;
 
 	m_AlignDirection = FVector::ZeroVector;
 	m_CohsionDirection = FVector::ZeroVector;
+	m_SeparationDirection = FVector::ZeroVector;
 }
 
 void UBoidBehaviourGpu::_UpdateData(int AlignCount, FVector FlockDirection, 
@@ -69,25 +80,22 @@ void UBoidBehaviourGpu::_UpdateData(int AlignCount, FVector FlockDirection,
 // Called every frame
 void UBoidBehaviourGpu::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+	//check(_index != -1);
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	FVector Acceleration = FVector::ZeroVector;
+	
 
 	FVector AlignForce = SteerTowards(m_AlignDirection) * Settings->AlignmentWeight;
 	FVector CohesForce = SteerTowards(m_CohsionDirection) * Settings->CohesionWeight;
 	FVector SeparForce = SteerTowards(m_SeparationDirection) * Settings->SeparationWeight;
+	FVector ObstaForce = SteerTowards(CalculateDirectionToAvoidObstacle()) * Settings->AvoidObstacleWeight;
 
+	FVector Acceleration = FVector::ZeroVector;
 	Acceleration += AlignForce;
 	Acceleration += CohesForce;
 	Acceleration += SeparForce;
-
-	if (IsHeadingToObstacle())
-	{
-		FVector AvoidObstacleDirection = CalculateDirectionToAvoidObstacle();
-		FVector AvoidObstacleForce = SteerTowards(AvoidObstacleDirection) * Settings->AvoidObstacleWeight;
-		Acceleration += AvoidObstacleForce;
-	}
-
+	Acceleration += ObstaForce;
+	
 	FVector NewVelocity = CurrentVelocity + Acceleration * DeltaTime;
 	float NewSpeed = NewVelocity.Size();
 	FVector NewDirection = NewVelocity / NewSpeed;
@@ -100,6 +108,7 @@ void UBoidBehaviourGpu::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	FVector NewPosition = GetOwner()->GetActorLocation() + CurrentVelocity * DeltaTime;
 	GetOwner()->SetActorLocation(NewPosition);
 
+	Spawner->SetMe(this);
 }
 
 FVector UBoidBehaviourGpu::CalculateAligmentDirection()
@@ -145,8 +154,12 @@ bool UBoidBehaviourGpu::IsHeadingToObstacle()
 
 FVector UBoidBehaviourGpu::CalculateDirectionToAvoidObstacle()
 {
-	const TArray<FVector>& Rays = FBoidDirections::GetDirections();
+	if (!IsHeadingToObstacle()) 
+	{
+		return FVector::ZeroVector;
+	}
 
+	const TArray<FVector>& Rays = FBoidDirections::GetDirections();
 
 	for (int Index = 0; Index < Rays.Num(); Index++)
 	{
@@ -166,12 +179,12 @@ FVector UBoidBehaviourGpu::CalculateDirectionToAvoidObstacle()
 			return WorldRay;
 		}
 	}
-
-	return GetOwner()->GetActorForwardVector();
+	return FVector::ZeroVector;
 }
 
 FVector UBoidBehaviourGpu::SteerTowards(FVector Direction)
 {
+	if (Direction == FVector::ZeroVector) return FVector::ZeroVector;
 	Direction.Normalize();
 	FVector NewDirection = Direction * Settings->MaxSpeed - CurrentVelocity;
 	return NewDirection.GetClampedToMaxSize(Settings->MaxSteeringForce);

@@ -22,7 +22,17 @@ float SeparationRadius;
 void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
 {	
 	uint CurrentIndex = ThreadId.x;
-	BoidDataIO CurrentBoid = BoidData[CurrentIndex]; 
+	BoidDataIO CurrentBoid = BoidData[CurrentIndex];
+	/*
+	*/
+	BoidData[CurrentIndex].AlignCount = 0;
+	BoidData[CurrentIndex].FlockDirection = float3(0.f, 0.f, 0.f);
+	BoidData[CurrentIndex].CohesionCount = 0;
+	BoidData[CurrentIndex].FlockPosition = float3(0.f, 0.f, 0.f);
+	BoidData[CurrentIndex].SeparationCount = 0;
+	BoidData[CurrentIndex].FlockSeparationDirection = float3(0.f, 0.f, 0.f);
+	BoidData[CurrentIndex].SeparationCount = 0;
+
 	for(int Index = 0; Index < BoidCount; ++Index)
 	{
 		if (Index == CurrentIndex) continue;

@@ -19,6 +19,7 @@ ABoidSpawner::ABoidSpawner()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	
 }
 
 // Called when the game starts or when spawned
@@ -29,27 +30,29 @@ void ABoidSpawner::BeginPlay()
 
 	Boids.Reserve(Settings->BoidCount);
 
-
+	/*
 	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateLambda([this](AActor* Instance) {
-		UE_LOG(LogTemp, Warning, TEXT("Hey %s: %d"), *Instance->GetName(), Instance->GetComponents().Num());
+		//UE_LOG(LogTemp, Warning, TEXT("Hey %s: %d"), *Instance->GetName(), Instance->GetComponents().Num());
 
 		//UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Instance->GetComponentByClass(UBoidBehaviour::StaticClass()));
 		UBoidBehaviourGpu* BoidBehav = Cast<UBoidBehaviourGpu>(Instance->GetComponentByClass(UBoidBehaviourGpu::StaticClass()));
 		if (!BoidBehav) return;
 		BoidBehav->SetSettings(Settings);
 		BoidBehav->SetSpawner(this);
+		BoidBehav->_index = BoidIndex;
 
 		#if WITH_EDITOR
 		UBoidDrawComponent* BoidDraw = Cast<UBoidDrawComponent>(Instance->GetComponentByClass(UBoidDrawComponent::StaticClass()));
 		if (!BoidDraw) return;
 		BoidDraw->SetSettings(Settings);
 		#endif
-		 
 	});
-	//BeginPlay will be called after the execution of this delegate
-	GetWorld()->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 
-	for (int Index = 0; Index < Settings->BoidCount; ++Index)
+	//INUTLE: BeginPlay viene comunque chiamato non appena eseguo SpawnActor e poi successivamente viene chiamato questo Delegate
+	GetWorld()->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	*/
+
+	for (int BoidIndex = 0; BoidIndex < Settings->BoidCount; ++BoidIndex)
 	{
 		FVector Position = GetActorLocation() + UKismetMathLibrary::RandomUnitVector() * Settings->SpawnRadius;
 		FVector Direction = UKismetMathLibrary::RandomUnitVector();
@@ -57,7 +60,26 @@ void ABoidSpawner::BeginPlay()
 		FTransform Transform(Direction.Rotation(), Position);
 
 		AActor* BoidInstance = GetWorld()->SpawnActor<AActor>(BoidPrefab, Transform);
-	
+		UBoidBehaviourGpu* BoidBehav = Cast<UBoidBehaviourGpu>(BoidInstance->GetComponentByClass(UBoidBehaviourGpu::StaticClass()));
+		BoidBehav->SetSettings(Settings);
+		BoidBehav->SetSpawner(this);
+		BoidBehav->_index = BoidIndex;
+
+#if WITH_EDITOR
+		UBoidDrawComponent* BoidDraw = Cast<UBoidDrawComponent>(BoidInstance->GetComponentByClass(UBoidDrawComponent::StaticClass()));
+		BoidDraw->SetSettings(Settings);
+#endif
+
+
+
+
+
+
+
+
+
+
+
 		/* Anche con SpawnActorDeferred i componenti che di base avrebbe l'attore, sarebbero inizializzati
 		* dopo il FinishSpawningActor. Per cui i compenenti che aggiungo (il behaviour) diventrebbero Root.
 		AActor* BoidInstance = GetWorld()->SpawnActorDeferred<AActor>(BoidPrefab, Transform);
@@ -93,10 +115,18 @@ void ABoidSpawner::BeginPlay()
 */
 	}
 
-	GetWorld()->RemoveOnActorSpawnedHandler(ActorSpawnedDelegate.GetHandle());
+	//GetWorld()->RemoveOnActorSpawnedHandler(ActorSpawnedDelegate.GetHandle());
 
-	Input.SetNum(Settings->BoidCount);
-	ComputeShader.Init(Settings->BoidCount);
+	BoidData_t Zeroed;
+	Zeroed.AlignCount = 0;
+	Zeroed.FlockDirection = FVector::ZeroVector;
+	Zeroed.CohesionCount = 0;
+	Zeroed.FlockPosition = FVector::ZeroVector;
+	Zeroed.SeparationCount = 0;
+	Zeroed.FlockSeparationDirection = FVector::ZeroVector;
+	Zeroed.SeparationCount = 0;
+
+	BoidDataIO.Init(Zeroed, Settings->BoidCount);
 }
 
 DECLARE_STATS_GROUP(TEXT("BoidStatGroup"), STATGROUP_BoidStatGroup, STATCAT_Advanced);
@@ -114,58 +144,72 @@ void ABoidSpawner::Tick(float DeltaTime)
 		return;
 	}
 
-
-	//Create only at BeginPlay or CTOR
-	//static TArray<BoidData_t> Input;
-	//Input.SetNum(Boids.Num());
-	
-	{
-		SCOPE_CYCLE_COUNTER(STAT_MyInputStats);
-		//ForEach Boid update data: 
-		for (int Index = 0; Index < Boids.Num(); ++Index)
-		{
-			AActor* Actor = Boids[Index];
-			//UBoidBehaviour* BoidBehav = Cast<UBoidBehaviour>(Actor->GetComponentByClass(UBoidBehaviour::StaticClass()));
-		
-			//Input
-			Input[Index].Position = Actor->GetActorLocation();
-			Input[Index].Direction = Actor->GetActorForwardVector();
-		
-			//Output
-			Input[Index].AlignCount = 0;
-			Input[Index].FlockDirection = FVector::ZeroVector;
-			Input[Index].CohesionCount = 0;
-			Input[Index].FlockPosition = FVector::ZeroVector;
-			Input[Index].SeparationCount = 0;
-			Input[Index].FlockSeparationDirection = FVector::ZeroVector;
-			Input[Index].SeparationCount = 0;
-		}
-	}
-
-	{
-		SCOPE_CYCLE_COUNTER(STAT_MyExecuteStats);
-		ComputeShader.Execute(Input);
-	}
-
-
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MyOutputStats);
-		const TArray<BoidData_t>& Result = ComputeShader.GetResult();
+#ifdef ENABLED
 		for (int Index = 0; Index < Boids.Num(); ++Index)
 		{
 			AActor* Actor = Boids[Index];
+			/*
 			UBoidBehaviourGpu* BoidBehav = Cast<UBoidBehaviourGpu>(Actor->GetComponentByClass(UBoidBehaviourGpu::StaticClass()));
+			
 			BoidBehav->_UpdateData(
-				Result[Index].AlignCount,
-				Result[Index].FlockDirection,
-				Result[Index].CohesionCount,
-				Result[Index].FlockPosition,
-				Result[Index].SeparationCount,
-				Result[Index].FlockSeparationDirection
+				BoidDataIO[Index].AlignCount,
+				BoidDataIO[Index].FlockDirection,
+				BoidDataIO[Index].CohesionCount,
+				BoidDataIO[Index].FlockPosition,
+				BoidDataIO[Index].SeparationCount,
+				BoidDataIO[Index].FlockSeparationDirection
 			);
+			*/
+
+			//RESET BoidDataIO
+			
+			//BoidDataIO
+			BoidDataIO[Index].Position = Actor->GetActorLocation();
+			BoidDataIO[Index].Direction = Actor->GetActorForwardVector();
+
+			//Output
+			/*
+			BoidDataIO[Index].AlignCount = 0;
+			BoidDataIO[Index].FlockDirection = FVector::ZeroVector;
+			BoidDataIO[Index].CohesionCount = 0;
+			BoidDataIO[Index].FlockPosition = FVector::ZeroVector;
+			BoidDataIO[Index].SeparationCount = 0;
+			BoidDataIO[Index].FlockSeparationDirection = FVector::ZeroVector;
+			BoidDataIO[Index].SeparationCount = 0;
+			*/
 		}
+#endif
 	}
+	
+	{
+		SCOPE_CYCLE_COUNTER(STAT_MyExecuteStats);
+		ComputeShader.Execute(BoidDataIO);
+	}
+
+
+	
 }
+
+void ABoidSpawner::SetMe(UBoidBehaviourGpu* Boid)
+{
+	int Index = Boid->_index;
+
+	Boid->_UpdateData(
+		BoidDataIO[Index].AlignCount,
+		BoidDataIO[Index].FlockDirection,
+		BoidDataIO[Index].CohesionCount,
+		BoidDataIO[Index].FlockPosition,
+		BoidDataIO[Index].SeparationCount,
+		BoidDataIO[Index].FlockSeparationDirection
+	);
+
+	BoidDataIO[Index].Position = Boid->GetOwner()->GetActorLocation();
+	BoidDataIO[Index].Direction = Boid->GetOwner()->GetActorForwardVector();
+
+}
+
 
 const TArray<AActor*>& ABoidSpawner::GetBoids() const
 {

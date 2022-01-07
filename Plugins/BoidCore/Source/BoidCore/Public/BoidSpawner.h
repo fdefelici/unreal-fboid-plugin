@@ -32,8 +32,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Spawn Config")
 	class UBoidSettings* Settings;
 
+	void SetMe(class UBoidBehaviourGpu* Boid);
+
 private:
 	TArray<AActor*> Boids;
-	TArray<BoidData_t> Input;
+	TArray<BoidData_t> BoidDataIO;
 	FBoidComputeShader ComputeShader;
 };

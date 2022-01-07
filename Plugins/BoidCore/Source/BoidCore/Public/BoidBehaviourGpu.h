@@ -49,4 +49,6 @@ public:
 	FVector m_AlignDirection;
 	FVector m_CohsionDirection;
 	FVector m_SeparationDirection;
+
+	int _index;
 };

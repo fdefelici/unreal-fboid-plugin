@@ -101,5 +101,5 @@ FPrimitiveSceneProxy* UBoidDrawComponent::CreateSceneProxy()
 void UBoidDrawComponent::SetSettings(UBoidSettings* SomeSettings)
 {
 	Settings = SomeSettings;
-	MarkRenderStateDirty(); //Force SceneProxy to be re-created
+	//MarkRenderStateDirty(); //Force SceneProxy to be re-created
 }
