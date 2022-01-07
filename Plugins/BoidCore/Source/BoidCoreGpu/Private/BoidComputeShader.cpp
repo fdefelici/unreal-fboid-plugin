@@ -18,22 +18,25 @@ DECLARE_CYCLE_STAT(TEXT("Prova"), STAT_MyProva, STATGROUP_ProvaGroup);
 DECLARE_CYCLE_STAT(TEXT("Prova2"), STAT_MyProva2, STATGROUP_ProvaGroup);
 DECLARE_CYCLE_STAT(TEXT("Prova3"), STAT_MyProva3, STATGROUP_ProvaGroup);
 
-void FBoidComputeShader::Execute(TArray<BoidData_t>& DataIO)
+void FBoidComputeShader::Execute(TArray<BoidDataInput_t>& DataIO, TArray<BoidData_t>& DataOutput)
 {
 	//FRenderCommandFence Fence;
 	m_IsCompleted = false;
 	ENQUEUE_RENDER_COMMAND(FBoidComputeShaderCommand)(
-		[this, &DataIO](FRHICommandListImmediate& RHICommands)
+		[this, &DataIO, &DataOutput](FRHICommandListImmediate& RHICommands)
 		{
 			FRDGBuilder GraphBuilder(RHICommands);
 
 
 			uint32 BeginTime, EndTime;
 
-
 			BeginTime = FPlatformTime::Cycles();
-			FRDGBufferRef BoidDataBuffer = CreateStructuredBuffer(GraphBuilder, TEXT("BoidDataBufferPass"), sizeof(BoidData_t), DataIO.Num(),
-				DataIO.GetData(), sizeof(BoidData_t) * DataIO.Num(), ERDGInitialDataFlags::NoCopy); //Usare "No Copy" se Input non muore dopo la chiamata a Execute.
+			FRDGBufferRef BoidInputBuffer = CreateStructuredBuffer(GraphBuilder, TEXT("BoidInputBufferPass"), sizeof(BoidDataInput_t), DataIO.Num(),
+				DataIO.GetData(), sizeof(BoidDataInput_t) * DataIO.Num(), ERDGInitialDataFlags::NoCopy); //Usare "No Copy" se Input non muore dopo la chiamata a Execute.
+			FRDGBufferSRVRef BoidInputBufferSRV = GraphBuilder.CreateSRV(BoidInputBuffer);
+
+
+			FRDGBufferRef BoidDataBuffer = GraphBuilder.CreateBuffer(FRDGBufferDesc::CreateStructuredDesc(sizeof(BoidData_t), DataOutput.Num()), TEXT("BoidOutputBufferPass"));
 			FRDGBufferUAVRef BoidDataBufferUAV = GraphBuilder.CreateUAV(BoidDataBuffer);
 
 			EndTime = FPlatformTime::Cycles();
@@ -45,6 +48,7 @@ void FBoidComputeShader::Execute(TArray<BoidData_t>& DataIO)
 		
 			FBoidComputeShaderDeclaration::FParameters* PassParams = GraphBuilder.AllocParameters<FBoidComputeShaderDeclaration::FParameters>();
 			PassParams->BoidData = BoidDataBufferUAV;
+			PassParams->BoidDataInput = BoidInputBufferSRV;
 			PassParams->BoidCount = DataIO.Num();
 			PassParams->AlignRadius = 300.f;
 			PassParams->CohesionRadius = 300.f;
@@ -69,8 +73,8 @@ void FBoidComputeShader::Execute(TArray<BoidData_t>& DataIO)
 			// Read back data from buffer
 			BeginTime = FPlatformTime::Cycles();
 			FRHIStructuredBuffer* StructuredBuffer = PooledBuffer->GetStructuredBufferRHI();
-			BoidData_t* data = (BoidData_t*)RHILockStructuredBuffer(StructuredBuffer, 0, sizeof(BoidData_t) * DataIO.Num(), RLM_ReadOnly);
-			FMemory::Memcpy(DataIO.GetData(), data, sizeof(BoidData_t) * DataIO.Num());
+			BoidData_t* data = (BoidData_t*)RHILockStructuredBuffer(StructuredBuffer, 0, sizeof(BoidData_t) * DataOutput.Num(), RLM_ReadOnly);
+			FMemory::Memcpy(DataOutput.GetData(), data, sizeof(BoidData_t) * DataOutput.Num());
 			RHIUnlockStructuredBuffer(StructuredBuffer);
 			EndTime = FPlatformTime::Cycles();
 			SET_CYCLE_COUNTER(STAT_MyProva3, EndTime - BeginTime);

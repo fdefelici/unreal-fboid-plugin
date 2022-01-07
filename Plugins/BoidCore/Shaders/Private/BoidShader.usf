@@ -1,9 +1,15 @@
 #include "/Engine/Public/Platform.ush"
 
-struct BoidDataIO
+
+struct BoidDataInput_t
 {
 	float3 Position;
 	float3 Direction;
+};
+
+
+struct BoidDataIO
+{
 	float3 FlockDirection;
 	float3 FlockPosition;
 	float3 FlockSeparationDirection;
@@ -12,6 +18,7 @@ struct BoidDataIO
 	int SeparationCount;
 };
 
+StructuredBuffer<BoidDataInput_t> BoidDataInput;
 RWStructuredBuffer<BoidDataIO> BoidData;
 int BoidCount;
 float AlignRadius;
@@ -22,9 +29,8 @@ float SeparationRadius;
 void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
 {	
 	uint CurrentIndex = ThreadId.x;
-	BoidDataIO CurrentBoid = BoidData[CurrentIndex];
-	/*
-	*/
+	BoidDataInput_t CurrentBoid = BoidDataInput[CurrentIndex];
+
 	BoidData[CurrentIndex].AlignCount = 0;
 	BoidData[CurrentIndex].FlockDirection = float3(0.f, 0.f, 0.f);
 	BoidData[CurrentIndex].CohesionCount = 0;
@@ -37,7 +43,7 @@ void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
 	{
 		if (Index == CurrentIndex) continue;
 		
-		BoidDataIO EachBoid = BoidData[Index];
+		BoidDataInput_t EachBoid = BoidDataInput[Index];
 		float3 Offset = CurrentBoid.Position - EachBoid.Position;
 		float SqrDistance = Offset.x * Offset.x + Offset.y * Offset.y + Offset.z * Offset.z;
 		

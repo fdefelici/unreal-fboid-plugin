@@ -117,6 +117,11 @@ void ABoidSpawner::BeginPlay()
 
 	//GetWorld()->RemoveOnActorSpawnedHandler(ActorSpawnedDelegate.GetHandle());
 
+	BoidDataInput_t ZeroIn;
+	ZeroIn.Direction = FVector::ZeroVector;
+	ZeroIn.Position = FVector::ZeroVector;
+
+
 	BoidData_t Zeroed;
 	Zeroed.AlignCount = 0;
 	Zeroed.FlockDirection = FVector::ZeroVector;
@@ -126,7 +131,8 @@ void ABoidSpawner::BeginPlay()
 	Zeroed.FlockSeparationDirection = FVector::ZeroVector;
 	Zeroed.SeparationCount = 0;
 
-	BoidDataIO.Init(Zeroed, Settings->BoidCount);
+	BoidDataOut.Init(Zeroed, Settings->BoidCount);
+	BoidDataIn.Init(ZeroIn, Settings->BoidCount);
 }
 
 DECLARE_STATS_GROUP(TEXT("BoidStatGroup"), STATGROUP_BoidStatGroup, STATCAT_Advanced);
@@ -185,7 +191,7 @@ void ABoidSpawner::Tick(float DeltaTime)
 	
 	{
 		SCOPE_CYCLE_COUNTER(STAT_MyExecuteStats);
-		ComputeShader.Execute(BoidDataIO);
+		ComputeShader.Execute(BoidDataIn, BoidDataOut);
 	}
 
 
@@ -197,16 +203,16 @@ void ABoidSpawner::SetMe(UBoidBehaviourGpu* Boid)
 	int Index = Boid->_index;
 
 	Boid->_UpdateData(
-		BoidDataIO[Index].AlignCount,
-		BoidDataIO[Index].FlockDirection,
-		BoidDataIO[Index].CohesionCount,
-		BoidDataIO[Index].FlockPosition,
-		BoidDataIO[Index].SeparationCount,
-		BoidDataIO[Index].FlockSeparationDirection
+		BoidDataOut[Index].AlignCount,
+		BoidDataOut[Index].FlockDirection,
+		BoidDataOut[Index].CohesionCount,
+		BoidDataOut[Index].FlockPosition,
+		BoidDataOut[Index].SeparationCount,
+		BoidDataOut[Index].FlockSeparationDirection
 	);
 
-	BoidDataIO[Index].Position = Boid->GetOwner()->GetActorLocation();
-	BoidDataIO[Index].Direction = Boid->GetOwner()->GetActorForwardVector();
+	BoidDataIn[Index].Position = Boid->GetOwner()->GetActorLocation();
+	BoidDataIn[Index].Direction = Boid->GetOwner()->GetActorForwardVector();
 
 }
 

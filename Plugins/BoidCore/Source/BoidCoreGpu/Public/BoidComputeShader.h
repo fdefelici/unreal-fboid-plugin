@@ -7,7 +7,7 @@ class BOIDCOREGPU_API FBoidComputeShader
 {
 public:
 	FBoidComputeShader();
-	void Execute(TArray<BoidData_t>& DataIO);
+	void Execute(TArray<BoidDataInput_t>& DataIO, TArray<BoidData_t>& DataOut);
 	bool IsCompleted();
 private:
 	bool m_IsCompleted;

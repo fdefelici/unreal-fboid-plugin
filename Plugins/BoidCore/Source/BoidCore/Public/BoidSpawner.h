@@ -36,6 +36,7 @@ public:
 
 private:
 	TArray<AActor*> Boids;
-	TArray<BoidData_t> BoidDataIO;
+	TArray<BoidDataInput_t> BoidDataIn;
+	TArray<BoidData_t> BoidDataOut;
 	FBoidComputeShader ComputeShader;
 };
