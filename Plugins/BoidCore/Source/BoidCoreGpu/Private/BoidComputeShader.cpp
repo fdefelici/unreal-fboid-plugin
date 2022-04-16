@@ -12,18 +12,18 @@ bool FBoidComputeShader::IsCompleted()
 	return m_IsCompleted;
 }
 
-DECLARE_STATS_GROUP(TEXT("ProvaGroup"), STATGROUP_ProvaGroup, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("BoidShader"), STATGROUP_BoidShader, STATCAT_Advanced);
 
-DECLARE_CYCLE_STAT(TEXT("Prova"), STAT_MyProva, STATGROUP_ProvaGroup);
-DECLARE_CYCLE_STAT(TEXT("Prova2"), STAT_MyProva2, STATGROUP_ProvaGroup);
-DECLARE_CYCLE_STAT(TEXT("Prova3"), STAT_MyProva3, STATGROUP_ProvaGroup);
+DECLARE_CYCLE_STAT(TEXT("BufferSetup"), STAT_BufferSetup, STATGROUP_BoidShader);
+DECLARE_CYCLE_STAT(TEXT("Execute"), STAT_Execute, STATGROUP_BoidShader);
+DECLARE_CYCLE_STAT(TEXT("BufferRead"), STAT_BufferRead, STATGROUP_BoidShader);
 
-void FBoidComputeShader::Execute(TArray<BoidDataInput_t>& DataIO, TArray<BoidData_t>& DataOutput)
+void FBoidComputeShader::Execute(float AlignRadius, float CohesionRadius, float SeparationRadius, TArray<BoidDataInput_t>& DataInput, TArray<BoidData_t>& DataOutput)
 {
 	//FRenderCommandFence Fence;
 	m_IsCompleted = false;
 	ENQUEUE_RENDER_COMMAND(FBoidComputeShaderCommand)(
-		[this, &DataIO, &DataOutput](FRHICommandListImmediate& RHICommands)
+		[this, &DataInput, &DataOutput, AlignRadius, CohesionRadius, SeparationRadius](FRHICommandListImmediate& RHICommands)
 		{
 			FRDGBuilder GraphBuilder(RHICommands);
 
@@ -31,8 +31,8 @@ void FBoidComputeShader::Execute(TArray<BoidDataInput_t>& DataIO, TArray<BoidDat
 			uint32 BeginTime, EndTime;
 
 			BeginTime = FPlatformTime::Cycles();
-			FRDGBufferRef BoidInputBuffer = CreateStructuredBuffer(GraphBuilder, TEXT("BoidInputBufferPass"), sizeof(BoidDataInput_t), DataIO.Num(),
-				DataIO.GetData(), sizeof(BoidDataInput_t) * DataIO.Num(), ERDGInitialDataFlags::NoCopy); //Usare "No Copy" se Input non muore dopo la chiamata a Execute.
+			FRDGBufferRef BoidInputBuffer = CreateStructuredBuffer(GraphBuilder, TEXT("BoidInputBufferPass"), sizeof(BoidDataInput_t), DataInput.Num(),
+				DataInput.GetData(), sizeof(BoidDataInput_t) * DataInput.Num(), ERDGInitialDataFlags::NoCopy); //Usare "No Copy" se Input non muore dopo la chiamata a Execute.
 			FRDGBufferSRVRef BoidInputBufferSRV = GraphBuilder.CreateSRV(BoidInputBuffer);
 
 
@@ -40,23 +40,23 @@ void FBoidComputeShader::Execute(TArray<BoidDataInput_t>& DataIO, TArray<BoidDat
 			FRDGBufferUAVRef BoidDataBufferUAV = GraphBuilder.CreateUAV(BoidDataBuffer);
 
 			EndTime = FPlatformTime::Cycles();
-			SET_CYCLE_COUNTER(STAT_MyProva, EndTime - BeginTime);
+			SET_CYCLE_COUNTER(STAT_BufferSetup, EndTime - BeginTime);
 
 			BeginTime = FPlatformTime::Cycles();
 			TShaderMapRef<FBoidComputeShaderDeclaration> ComputeShaderDecl(GetGlobalShaderMap(ERHIFeatureLevel::SM5));
 
 		
 			FBoidComputeShaderDeclaration::FParameters* PassParams = GraphBuilder.AllocParameters<FBoidComputeShaderDeclaration::FParameters>();
-			PassParams->BoidData = BoidDataBufferUAV;
+			PassParams->BoidDataOutput = BoidDataBufferUAV;
 			PassParams->BoidDataInput = BoidInputBufferSRV;
-			PassParams->BoidCount = DataIO.Num();
-			PassParams->AlignRadius = 300.f;
-			PassParams->CohesionRadius = 300.f;
-			PassParams->SeparationRadius = 100.f;
+			PassParams->BoidCount = DataInput.Num();
+			PassParams->AlignRadius = AlignRadius;
+			PassParams->CohesionRadius = CohesionRadius;
+			PassParams->SeparationRadius = SeparationRadius;
 
 			//https://answers.unrealengine.com/questions/978809/loading-data-tofrom-structured-buffer-compute-shad.html
 			//int X = FMath::DivideAndRoundUp(BoidCount, FBoidComputeShaderDeclaration::ThreadsPerGroup.X);
-			FIntVector GroupCounts = FComputeShaderUtils::GetGroupCount({ DataIO.Num(), 1, 1}, FBoidComputeShaderDeclaration::ThreadsPerGroup);
+			FIntVector GroupCounts = FComputeShaderUtils::GetGroupCount({ DataInput.Num(), 1, 1}, FBoidComputeShaderDeclaration::ThreadsPerGroup);
 
 			//Execute the Compute Shader (synchrnous call)
 			FComputeShaderUtils::AddPass(GraphBuilder, RDG_EVENT_NAME("BoidComputeShaderPass"),
@@ -68,7 +68,7 @@ void FBoidComputeShader::Execute(TArray<BoidDataInput_t>& DataIO, TArray<BoidDat
 
 			GraphBuilder.Execute();
 			EndTime = FPlatformTime::Cycles();
-			SET_CYCLE_COUNTER(STAT_MyProva2, EndTime - BeginTime);
+			SET_CYCLE_COUNTER(STAT_Execute, EndTime - BeginTime);
 
 			// Read back data from buffer
 			BeginTime = FPlatformTime::Cycles();
@@ -77,7 +77,7 @@ void FBoidComputeShader::Execute(TArray<BoidDataInput_t>& DataIO, TArray<BoidDat
 			FMemory::Memcpy(DataOutput.GetData(), data, sizeof(BoidData_t) * DataOutput.Num());
 			RHIUnlockStructuredBuffer(StructuredBuffer);
 			EndTime = FPlatformTime::Cycles();
-			SET_CYCLE_COUNTER(STAT_MyProva3, EndTime - BeginTime);
+			SET_CYCLE_COUNTER(STAT_BufferRead, EndTime - BeginTime);
 
 			m_IsCompleted = true;
 		}

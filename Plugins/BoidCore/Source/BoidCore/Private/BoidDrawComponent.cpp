@@ -1,5 +1,5 @@
 // (FDF) Fill out your copyright notice in the Description page of Project Settings.
-
+#pragma optimize("", off)
 
 #include "BoidDrawComponent.h"
 #include "BoidSettings.h"
@@ -17,7 +17,12 @@ public:
 
 	FBoidDrawComponentSceneProxy(const UBoidDrawComponent* InComponent)
 		: FPrimitiveSceneProxy(InComponent)
+		, bVisibleOnlyForSelected(InComponent->bVisibleOnlyForSelected)
 		, Settings(InComponent->Settings)
+		, ColliderRadiusColor(InComponent->ColliderRadiusColor)
+		, AlignmentRadiusColor(InComponent->AlignmentRadiusColor)
+		, CohesionRadiusColor(InComponent->CohesionRadiusColor)
+		, SeparationRadiusColor(InComponent->SeparationRadiusColor)
 	{
 	}
 
@@ -39,11 +44,10 @@ public:
 				const FSceneView* View = Views[ViewIndex];
 
 				FPrimitiveDrawInterface* PDI = Collector.GetPDI(ViewIndex);
-				DrawCircle(PDI, Center, AlignX, AlignY, FLinearColor::Red, Settings->ColliderRadius, Smoothness, SDPG_Foreground);
-				
-				DrawCircle(PDI, Center, AlignX, AlignY, FLinearColor::Green, Settings->AlignmentRadius, Smoothness, SDPG_Foreground);
-				DrawCircle(PDI, Center, AlignX, AlignY, FLinearColor::Blue, Settings->CohesionRadius, Smoothness, SDPG_Foreground);
-				DrawCircle(PDI, Center, AlignX, AlignY, FLinearColor::Yellow, Settings->SeparationRadius, Smoothness, SDPG_Foreground);
+				DrawCircle(PDI, Center, AlignX, AlignY, ColliderRadiusColor, Settings->ColliderRadius, Smoothness, SDPG_Foreground);
+				DrawCircle(PDI, Center, AlignX, AlignY, AlignmentRadiusColor, Settings->AlignmentRadius, Smoothness, SDPG_Foreground);
+				DrawCircle(PDI, Center, AlignX, AlignY, CohesionRadiusColor, Settings->CohesionRadius, Smoothness, SDPG_Foreground);
+				DrawCircle(PDI, Center, AlignX, AlignY, SeparationRadiusColor, Settings->SeparationRadius, Smoothness, SDPG_Foreground);
 
 				//UKismetSystemLibrary::DrawDebugCircle(GetWorld(), Center, Settings->AlignmentRadius, Smoothness, FLinearColor::Green);
 				//UKismetSystemLibrary::DrawDebugCircle(GetWorld(), Center, Settings->CohesionRadius, Smoothness, FLinearColor::Blue);
@@ -56,10 +60,11 @@ public:
 	{
 
 		const bool HasSettings = Settings != nullptr;
+		const bool IsSelected = IsParentSelected() || IsIndividuallySelected();
 
 		FPrimitiveViewRelevance Result;
 		//Result.bDrawRelevance = IsShown(View) && (View->Family->EngineShowFlags.BillboardSprites);
-		Result.bDrawRelevance = HasSettings && IsShown(View);
+		Result.bDrawRelevance = (!bVisibleOnlyForSelected || (bVisibleOnlyForSelected && IsSelected)) && (HasSettings && IsShown(View));
 		Result.bDynamicRelevance = true;
 		Result.bShadowRelevance = false;
 		Result.bEditorPrimitiveRelevance = UseEditorCompositing(View);
@@ -75,21 +80,27 @@ public:
 	virtual uint32 GetMemoryFootprint(void) const override { return sizeof * this + GetAllocatedSize(); }
 	uint32 GetAllocatedSize(void) const { return FPrimitiveSceneProxy::GetAllocatedSize(); }
 private:
+	bool bVisibleOnlyForSelected;
 	UBoidSettings* Settings;
+	FLinearColor ColliderRadiusColor;
+	FLinearColor AlignmentRadiusColor;
+	FLinearColor CohesionRadiusColor;
+	FLinearColor SeparationRadiusColor;
 };
 
 UBoidDrawComponent::UBoidDrawComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bUseEditorCompositing = false;
-	//bHiddenInGame = true;
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	SetGenerateOverlapEvents(false);
+	bIsEditorOnly = true; //remove during UE game build
+	bHiddenInGame = true; //by default, not visible on PIE
 
-	//Se aggiunto a Editor Time a un actor, 
-	// (non riesco a usare WITH_EDITOR in teoria)
-	//cosi non verra' caricato nella build di Runtime
-	bIsEditorOnly = true;
+	ColliderRadiusColor = FColor::Red;
+	AlignmentRadiusColor = FColor::Blue;
+	CohesionRadiusColor = FColor::Green;
+	SeparationRadiusColor = FColor::Black;
 }
 
 
@@ -101,5 +112,12 @@ FPrimitiveSceneProxy* UBoidDrawComponent::CreateSceneProxy()
 void UBoidDrawComponent::SetSettings(UBoidSettings* SomeSettings)
 {
 	Settings = SomeSettings;
-	//MarkRenderStateDirty(); //Force SceneProxy to be re-created
+	MarkRenderStateDirty(); //Force SceneProxy to be re-created
 }
+
+void UBoidDrawComponent::SetVisibleOnlySelected(bool bOnlySelected)
+{
+	bVisibleOnlyForSelected = bOnlySelected;
+	MarkRenderStateDirty(); //Force SceneProxy to be re-created
+}
+#pragma optimize("", on)

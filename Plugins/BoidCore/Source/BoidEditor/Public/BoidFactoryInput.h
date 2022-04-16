@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS(BlueprintType, config = EditorPerProjectUserSettings)
+UCLASS(BlueprintType)
 class BOIDEDITOR_API UBoidFactoryInput : public UObject
 {
 	GENERATED_BODY()

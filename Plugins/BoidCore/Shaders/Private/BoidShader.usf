@@ -8,7 +8,7 @@ struct BoidDataInput_t
 };
 
 
-struct BoidDataIO
+struct BoidDataOutput_t
 {
 	float3 FlockDirection;
 	float3 FlockPosition;
@@ -19,7 +19,7 @@ struct BoidDataIO
 };
 
 StructuredBuffer<BoidDataInput_t> BoidDataInput;
-RWStructuredBuffer<BoidDataIO> BoidData;
+RWStructuredBuffer<BoidDataOutput_t> BoidDataOutput;
 int BoidCount;
 float AlignRadius;
 float CohesionRadius;
@@ -31,13 +31,13 @@ void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
 	uint CurrentIndex = ThreadId.x;
 	BoidDataInput_t CurrentBoid = BoidDataInput[CurrentIndex];
 
-	BoidData[CurrentIndex].AlignCount = 0;
-	BoidData[CurrentIndex].FlockDirection = float3(0.f, 0.f, 0.f);
-	BoidData[CurrentIndex].CohesionCount = 0;
-	BoidData[CurrentIndex].FlockPosition = float3(0.f, 0.f, 0.f);
-	BoidData[CurrentIndex].SeparationCount = 0;
-	BoidData[CurrentIndex].FlockSeparationDirection = float3(0.f, 0.f, 0.f);
-	BoidData[CurrentIndex].SeparationCount = 0;
+	BoidDataOutput[CurrentIndex].AlignCount = 0;
+	BoidDataOutput[CurrentIndex].FlockDirection = float3(0.f, 0.f, 0.f);
+	BoidDataOutput[CurrentIndex].CohesionCount = 0;
+	BoidDataOutput[CurrentIndex].FlockPosition = float3(0.f, 0.f, 0.f);
+	BoidDataOutput[CurrentIndex].SeparationCount = 0;
+	BoidDataOutput[CurrentIndex].FlockSeparationDirection = float3(0.f, 0.f, 0.f);
+	BoidDataOutput[CurrentIndex].SeparationCount = 0;
 
 	for(int Index = 0; Index < BoidCount; ++Index)
 	{
@@ -49,18 +49,18 @@ void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
 		
 		if (SqrDistance < AlignRadius * AlignRadius)
 		{
-			BoidData[CurrentIndex].AlignCount += 1;
-			BoidData[CurrentIndex].FlockDirection += EachBoid.Direction;
+			BoidDataOutput[CurrentIndex].AlignCount += 1;
+			BoidDataOutput[CurrentIndex].FlockDirection += EachBoid.Direction;
 		}
 		if (SqrDistance < CohesionRadius * CohesionRadius)
 		{
-			BoidData[CurrentIndex].CohesionCount += 1;
-			BoidData[CurrentIndex].FlockPosition  += EachBoid.Position;
+			BoidDataOutput[CurrentIndex].CohesionCount += 1;
+			BoidDataOutput[CurrentIndex].FlockPosition  += EachBoid.Position;
 		}
 		if (SqrDistance < SeparationRadius * SeparationRadius)
 		{	
-			BoidData[CurrentIndex].SeparationCount += 1;
-			BoidData[CurrentIndex].FlockSeparationDirection += (Offset / SqrDistance);
+			BoidDataOutput[CurrentIndex].SeparationCount += 1;
+			BoidDataOutput[CurrentIndex].FlockSeparationDirection += (Offset / SqrDistance);
 		}
 	}
 }

@@ -58,7 +58,7 @@ void UBoidBehaviourGpu::BeginPlay()
 	m_SeparationDirection = FVector::ZeroVector;
 }
 
-void UBoidBehaviourGpu::_UpdateData(int AlignCount, FVector FlockDirection, 
+void UBoidBehaviourGpu::UpdateData(int AlignCount, FVector FlockDirection, 
 	int CohesionCount, FVector FlockPosition, 
 	int SeparationCount, FVector FlockSeparationDirection) {
 	if (AlignCount > 0) {
@@ -108,7 +108,7 @@ void UBoidBehaviourGpu::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	FVector NewPosition = GetOwner()->GetActorLocation() + CurrentVelocity * DeltaTime;
 	GetOwner()->SetActorLocation(NewPosition);
 
-	Spawner->SetMe(this);
+	Spawner->UpdataDataFor(this);
 }
 
 FVector UBoidBehaviourGpu::CalculateAligmentDirection()

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/PrimitiveComponent.h"
+#include "Math/Color.h"
 #include "BoidDrawComponent.generated.h"
 
 /**
@@ -19,11 +20,21 @@ class BOIDCORE_API UBoidDrawComponent : public UPrimitiveComponent
 
 public:
 	void SetSettings(class UBoidSettings* Settings);
-	
+	void SetVisibleOnlySelected(bool bOnlySelected);
+	bool bVisibleOnlyForSelected;
+
 	UPROPERTY(EditAnywhere, Category = "Boid")
 	class UBoidSettings* Settings;
 
+	UPROPERTY(EditAnywhere, Category = "Boid")
+	FLinearColor ColliderRadiusColor;
+	UPROPERTY(EditAnywhere, Category = "Boid")
+	FLinearColor AlignmentRadiusColor;
+	UPROPERTY(EditAnywhere, Category = "Boid")
+	FLinearColor CohesionRadiusColor;
+	UPROPERTY(EditAnywhere, Category = "Boid")
+	FLinearColor SeparationRadiusColor;
+
 private:
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-
 };

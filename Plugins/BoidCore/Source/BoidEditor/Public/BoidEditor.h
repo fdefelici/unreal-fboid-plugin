@@ -17,4 +17,6 @@ private:
 	TSharedRef<SDockTab> SpawnWindow(const FSpawnTabArgs& Args);
 
 	bool IsCheckedStatus;
+
+	class UBoidInspectorInput* Input;
 };

@@ -26,7 +26,7 @@ class FBoidComputeShaderDeclaration : public FGlobalShader
 	SHADER_USE_PARAMETER_STRUCT(FBoidComputeShaderDeclaration, FGlobalShader);
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER_RDG_BUFFER_SRV(StructuredBuffer<BoidDataInput_t>, BoidDataInput)
-		SHADER_PARAMETER_RDG_BUFFER_UAV(RWStructuredBuffer<BoidData_t>, BoidData)
+		SHADER_PARAMETER_RDG_BUFFER_UAV(RWStructuredBuffer<BoidData_t>, BoidDataOutput)
 		SHADER_PARAMETER(int, BoidCount)
 		SHADER_PARAMETER(float, AlignRadius)
 		SHADER_PARAMETER(float, CohesionRadius)

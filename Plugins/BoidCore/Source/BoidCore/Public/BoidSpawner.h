@@ -32,7 +32,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Spawn Config")
 	class UBoidSettings* Settings;
 
-	void SetMe(class UBoidBehaviourGpu* Boid);
+	void UpdataDataFor(class UBoidBehaviourGpu* Boid);
 
 private:
 	TArray<AActor*> Boids;

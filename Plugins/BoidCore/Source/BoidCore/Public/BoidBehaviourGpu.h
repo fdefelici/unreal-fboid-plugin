@@ -26,7 +26,7 @@ public:
 	void SetSettings(class UBoidSettings* Settings);
 	void SetSpawner(class ABoidSpawner* Spawner);
 
-	void _UpdateData(int AlignCount, FVector FlockDirection, int CohesionCount, FVector FlockPosition, int SeparCount, FVector FlockSeparPosition);
+	void UpdateData(int AlignCount, FVector FlockDirection, int CohesionCount, FVector FlockPosition, int SeparCount, FVector FlockSeparPosition);
 
 private:
 	bool IsHeadingToObstacle();
