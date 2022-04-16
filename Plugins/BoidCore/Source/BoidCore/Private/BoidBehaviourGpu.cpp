@@ -37,18 +37,6 @@ void UBoidBehaviourGpu::BeginPlay()
 {
 	Super::BeginPlay();
 
-	//check(_index != -1);
-	//TODO CHECK
-	/*
-	if (!Settings) return;
-	
-	CurrentSpeed = Settings->MinSpeed;
-	CurrentDirection = GetOwner()->GetActorForwardVector();
-	CurrentVelocity = CurrentDirection * CurrentSpeed;
-
-	GetOwner()->SetActorRotation(CurrentDirection.Rotation());
-	*/
-
 	CurrentSpeed = 0.f;
 	CurrentDirection = GetOwner()->GetActorForwardVector();
 	CurrentVelocity = FVector::ZeroVector;
@@ -62,8 +50,7 @@ void UBoidBehaviourGpu::UpdateData(int AlignCount, FVector FlockDirection,
 	int CohesionCount, FVector FlockPosition, 
 	int SeparationCount, FVector FlockSeparationDirection) {
 	if (AlignCount > 0) {
-		//m_AlignDirection = AlignDirection / FlockmatesCount;
-		m_AlignDirection = FlockDirection; //effettivamente la media non serve ("accorcia" solo il vettore), poiche' poi faccio il Normalize
+		m_AlignDirection = FlockDirection; 
 	}
 
 	if (CohesionCount > 0) {

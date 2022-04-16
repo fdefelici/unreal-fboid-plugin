@@ -9,7 +9,6 @@
 #include "PropertyEditorModule.h"
 #include "Widgets/SWindow.h"
 
-#include "BoidFactoryObjectFilter.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SUniformGridPanel.h"
@@ -25,47 +24,12 @@
 #include "Engine/SCS_Node.h"
 #include "BoidBehaviourGpu.h"
 
-class FBoidFactoryFilter : public IClassViewerFilter
-{
-public:
-	TSet< const UClass* > AllowedChildOfClasses;
-
-	TSet< const UClass*> DisallowedChildOfClasses;
-
-	bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
-	{
-		/*
-		if (InClass->IsChildOf<AActor>()) return true;
-		return false;
-		*/
-		if (DisallowedChildOfClasses.Num() == 0 && AllowedChildOfClasses.Num() == 0)
-		{
-			return true;
-		}
-		return (InFilterFuncs->IfInChildOfClassesSet(AllowedChildOfClasses, InClass) != EFilterReturn::Failed)
-			&& (InFilterFuncs->IfInChildOfClassesSet(DisallowedChildOfClasses, InClass) == EFilterReturn::Failed);
-	}
-
-	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
-	{
-		if (DisallowedChildOfClasses.Num() == 0 && AllowedChildOfClasses.Num() == 0)
-		{
-			return true;
-		}
-
-		return InFilterFuncs->IfInChildOfClassesSet(AllowedChildOfClasses, InUnloadedClassData) != EFilterReturn::Failed
-			&& (InFilterFuncs->IfInChildOfClassesSet(DisallowedChildOfClasses, InUnloadedClassData) == EFilterReturn::Failed);;
-	}
-};
-
-
-
 UBoidFactory::UBoidFactory()
 {
 	//bCreateNew = true;
 	
-	//Determina l'icona dell'asset prima che venga chiamato il metodo CreateXXX
-	// Ovvero viene creata l'icona e poi c'e' il focus sul la label dell'asset per cambiargli nome.
+	//Determines the asset icon, before calling the method CreateXXX
+	//(first the icon is created, then the input focus is set to the asset label to be let the user set the asset name)
 	SupportedClass = UBlueprint::StaticClass();
 }
 
@@ -136,39 +100,16 @@ bool UBoidFactory::ConfigureProperties()
 	if (Confirmed && BoidInput->bInPlace)
 	{
 
-		//QUESTO RIESCE AD AGGIUNGERE UN ACTOR COMPONENT ALLA BLUEPRINT
+		//Adding actor cmponent to a blueprint
 		//Reference: https://forums.unrealengine.com/t/adding-components-and-modifying-properties-of-ublueprint-asset/41992/7
-		//Vedi anche: FKismetEditorUtilities::CreateBlueprintUsingAsset
-		// Forse ha una migliore gestione nell'aggiunta di un nodo 
-		//NOTA: Altra classe utile da Vedere e' FCreateBlueprintFromActorDialog
+		//See also: FKismetEditorUtilities::CreateBlueprintUsingAsset
+		//Maybe a better management when adding a node
+		//NOTE: another useful source class is FCreateBlueprintFromActorDialog
 		AttachBoidComponents(BoidInput->ActorBlueprint);
 		
 		return false;
 	}
 	return Confirmed;
-
-
-	/*
-	FClassViewerInitializationOptions Options;
-	Options.bIsActorsOnly = true;
-
-	TSharedPtr<FBoidFactoryFilter> Filter = MakeShareable(new FBoidFactoryFilter);
-	//Filter->AllowedChildOfClasses.Add(AActor::StaticClass());
-
-	Options.ClassFilter = Filter;
-
-
-	const FText TitleText = NSLOCTEXT("EditorFactories", "CreateBlueprintOptions", "Pick Parent Class");
-	UClass* ChosenClass = NULL;
-	const bool bPressedOk = SClassPickerDialog::PickClass(TitleText, Options, ChosenClass, AActor::StaticClass());
-	if (bPressedOk)
-	{	
-		//Nel caso seleziono una classe Blueprint, sara ritornata la "_C" (ovvero la classe autogenerata)
-		SelectedClass = ChosenClass;
-	}
-
-	return bPressedOk;
-	*/
 }
 
 
@@ -176,7 +117,6 @@ UObject* UBoidFactory::FactoryCreateNew(UClass* InClass, UObject* InParent, FNam
 {
 
 	//FKismetEditorUtilities::CreateBlueprint
-
 	//AActor* Obj = NewObject<AActor>(InParent, SelectedClass, InName, Flags);
 
 	UBlueprint* BPAsset = DuplicateObject(BoidInput->ActorBlueprint, InParent, InName);	

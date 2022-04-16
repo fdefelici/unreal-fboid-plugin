@@ -31,9 +31,6 @@ void UBoidBehaviour::SetSpawner(ABoidSpawner* ASpawner)
 void UBoidBehaviour::BeginPlay()
 {
 	Super::BeginPlay();
-
-
-	//TODO CHECK
 	if (!Settings) return;
 	
 	CurrentSpeed = Settings->MinSpeed;
@@ -139,18 +136,18 @@ FVector UBoidBehaviour::CalculateAligmentDirection()
 	for (const AActor* Each : Boids)
 	{
 		if (Each == GetOwner()) continue;
-		FVector PosDiff = Position - Each->GetActorLocation(); //Vettore verso di me
+		FVector PosDiff = Position - Each->GetActorLocation();
 		float SqrDist = PosDiff.SizeSquared();
 		if (SqrDist < Settings->AlignmentRadius * Settings->AlignmentRadius)
 		{
 			NeighboursCount++;
-			Result += Each->GetActorForwardVector(); //Sommo le direzione dei vicini
+			Result += Each->GetActorForwardVector();
 		}
 	}
 
 	if (NeighboursCount > 0)
 	{
-		Result /= NeighboursCount;  //media delle direzioni dei vicini
+		Result /= NeighboursCount;
 		Result.Normalize();
 	}
 	return Result;
@@ -168,19 +165,19 @@ FVector UBoidBehaviour::CalculateCohesionDirection()
 	for (const AActor* Each : Boids)
 	{
 		if (Each == GetOwner()) continue;
-		FVector PosDiff = Position - Each->GetActorLocation(); //Vettore verso di me
+		FVector PosDiff = Position - Each->GetActorLocation();
 		float SqrDist = PosDiff.SizeSquared();
 		if (SqrDist < Settings->CohesionRadius * Settings->CohesionRadius)
 		{
 			NeighboursCount++;
-			Result += Each->GetActorLocation(); //sommo le posizioni dei vicini
+			Result += Each->GetActorLocation();
 		}
 	}
 
 	if (NeighboursCount > 0)
 	{
-		Result /= NeighboursCount;  //media delle direzioni dei vicini
-		Result -= Position;         //direzione da me verso il punto medio
+		Result /= NeighboursCount;  
+		Result -= Position;         
 		Result.Normalize();
 	}
 	return Result;
@@ -198,7 +195,7 @@ FVector UBoidBehaviour::CalculateSeparationDirection()
 	for (const AActor* Each : Boids)
 	{
 		if (Each == GetOwner()) continue;
-		FVector PosDiff = Position - Each->GetActorLocation(); //Vettore verso di me
+		FVector PosDiff = Position - Each->GetActorLocation();
 		float SqrDist = PosDiff.SizeSquared();
 		if (SqrDist < Settings->SeparationRadius * Settings->SeparationRadius)
 		{
@@ -209,7 +206,7 @@ FVector UBoidBehaviour::CalculateSeparationDirection()
 
 	if (NeighboursCount > 0)
 	{
-		Result /= NeighboursCount;  //media delle direzioni dei vicini
+		Result /= NeighboursCount; 
 		Result.Normalize();
 	}
 	return Result;
