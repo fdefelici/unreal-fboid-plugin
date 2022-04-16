@@ -13,5 +13,11 @@ Here a list of the main feature offered by the plugin:
 * Integrated with Unreal physics system 
 * Flock simulation run on GPU using Compute Shaders
 
+# Project Structure
+The plugin project is organized with the following modules:
+* BoidCore: contains the domain and core logic 
+* BoidCoreGPU: contains the extension for the BoidCore related to GPU and Compute Shader implementation
+* BoidEditor: contains just In-Editor features such as Asset Factory, Sensor Visualizer, and others that will not be needed at runtime.
+
 # IDE
 * Unreal Engine: 4.27
